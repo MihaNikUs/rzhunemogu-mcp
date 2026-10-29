@@ -32,8 +32,19 @@ function createMcpServer(): McpServer {
     {
       title: 'Список категорий',
       description:
-        'Возвращает список всех категорий анекдотов на сайте РжуНеМогу (id, название, пометка 18+, количество записей).',
+        'Возвращает полный список категорий юмора на РжуНеМогу: id, slug, название, признак «18+», количество опубликованных записей. ' +
+        'Только чтение, без побочных эффектов. Ответ — JSON-массив в поле content[0].text. ' +
+        'Используй id из этого списка как categoryId в random_joke/get_jokes_by_category.',
       inputSchema: {},
+      outputSchema: z.array(
+        z.object({
+          id: z.number(),
+          slug: z.string(),
+          title: z.string(),
+          is_adult: z.boolean(),
+          count: z.number(),
+        })
+      ),
     },
     async () => {
       const cats = await listCategories();
@@ -46,8 +57,22 @@ function createMcpServer(): McpServer {
     {
       title: 'Случайный анекдот',
       description:
-        'Возвращает случайный анекдот. Можно указать categoryId для получения случайного анекдота из конкретного раздела.',
-      inputSchema: { categoryId: z.number().int().optional().describe('ID категории (необязательно)') },
+        'Возвращает одну случайную запись (анекдот/историю/афоризм) из базы РжуНеМогу. ' +
+        'Если указан categoryId — выбирается случайная запись только из этой категории; иначе из всех опубликованных, включая категории 18+. ' +
+        'Только чтение, без побочных эффектов. ' +
+        'Повторные вызовы с тем же аргументом могут вернуть разные записи (детерминированности нет). ' +
+        'При отсутствии записей в категории возвращается текст «Анекдот не найден».',
+      inputSchema: {
+        categoryId: z.number().int().optional().describe('ID категории (из list_categories). Если опущен — случайная запись из любой категории, включая 18+.'),
+      },
+      outputSchema: z.object({
+          id: z.number(),
+          category_id: z.number(),
+          category_title: z.string(),
+          content: z.string(),
+          is_adult: z.boolean(),
+          created_at: z.string(),
+        }),
     },
     async ({ categoryId }) => {
       const joke = await randomJoke(categoryId);
@@ -60,8 +85,20 @@ function createMcpServer(): McpServer {
     'get_joke_by_id',
     {
       title: 'Анекдот по ID',
-      description: 'Возвращает анекдот по его числовому ID.',
-      inputSchema: { id: z.number().int().positive().describe('Числовой ID анекдота') },
+      description:
+        'Возвращает запись юмора по её числовому ID. ID можно получить из search_jokes или random_joke (поле id). ' +
+        'Только чтение, без побочных эффектов. ' +
+        'Если записи с таким ID нет или она не опубликована — возвращается текст «Анекдот с таким ID не найден».',
+      inputSchema: {
+        id: z.number().int().positive().describe('Числовой ID записи (например, 13438). Должен быть целым положительным.'),
+      },
+      outputSchema: z.object({
+          id: z.number(),
+          category_id: z.number(),
+          category_title: z.string(),
+          content: z.string(),
+          created_at: z.string(),
+        }),
     },
     async ({ id }) => {
       const joke = await jokeById(id);
@@ -75,12 +112,26 @@ function createMcpServer(): McpServer {
     {
       title: 'Анекдоты по категории',
       description:
-        'Возвращает список анекдотов конкретной категории с пагинацией. Используй list_categories для получения корректного category_id.',
+        'Возвращает список записей конкретной категории с пагинацией, отсортированных от новых к старым по id (по убыванию). ' +
+        'categoryId обязателен (возьми из list_categories). limit — до 50 записей за раз (по умолчанию 15), offset — смещение для пагинации. ' +
+        'Только чтение, без побочных эффектов. ' +
+        'Ответ содержит total (всего записей в категории) и items (список). Для постраничного просмотра увеличивай offset кратно limit.',
       inputSchema: {
-        categoryId: z.number().int().positive().describe('ID категории'),
-        limit: z.number().int().min(1).max(50).optional().describe('Сколько записей (по умолчанию 15)'),
-        offset: z.number().int().min(0).optional().describe('Смещение для пагинации (по умолчанию 0)'),
+        categoryId: z.number().int().positive().describe('ID категории (из list_categories), например 1 для «Анекдоты». Обязателен.'),
+        limit: z.number().int().min(1).max(50).optional().describe('Количество записей за один вызов (1-50). По умолчанию 15.'),
+        offset: z.number().int().min(0).optional().describe('Смещение от начала списка для пагинации. По умолчанию 0.'),
       },
+      outputSchema: z.object({
+          total: z.number(),
+          items: z.array(
+            z.object({
+              id: z.number(),
+              category_id: z.number(),
+              content: z.string(),
+              created_at: z.string(),
+            })
+          ),
+        }),
     },
     async ({ categoryId, limit, offset }) => {
       const { items, total } = await jokesByCategory(categoryId, limit ?? 15, offset ?? 0);
@@ -93,12 +144,27 @@ function createMcpServer(): McpServer {
     {
       title: 'Поиск анекдотов',
       description:
-        'Полнотекстовый поиск анекдотов по ключевым словам (например, "врач", "Штирлиц", "тёща").',
+        'Полнотекстовый поиск записей по ключевым словам на русском языке (например, «врач», «Штирлиц», «тёща», «теща»). ' +
+        'Использует морфологию русского языка PostgreSQL: word-формы приводятся к основе, поэтому «врач» найдёт и «врачи», «врачом» и т.п. ' +
+        'Результаты отсортированы по релевантности (ts_rank). query обязателен; поиск без него вернёт пустой результат. ' +
+        'Только чтение, без побочных эффектов. limit до 50 (по умолчанию 15), offset для пагинации.',
       inputSchema: {
-        query: z.string().min(1).describe('Поисковый запрос'),
-        limit: z.number().int().min(1).max(50).optional().describe('Сколько записей (по умолчанию 15)'),
-        offset: z.number().int().min(0).optional().describe('Смещение для пагинации'),
+        query: z.string().min(1).describe('Поисковый запрос (одно или несколько слов, поддерживается русская морфология). Пример: «про врача».'),
+        limit: z.number().int().min(1).max(50).optional().describe('Количество результатов (1-50). По умолчанию 15.'),
+        offset: z.number().int().min(0).optional().describe('Смещение для пагинации. По умолчанию 0.'),
       },
+      outputSchema: z.object({
+          query: z.string(),
+          total: z.number(),
+          items: z.array(
+            z.object({
+              id: z.number(),
+              category_id: z.number(),
+              content: z.string(),
+              created_at: z.string(),
+            })
+          ),
+        }),
     },
     async ({ query, limit, offset }) => {
       const { items, total } = await searchJokes(query, limit ?? 15, offset ?? 0);
@@ -110,8 +176,19 @@ function createMcpServer(): McpServer {
     'popular_tags',
     {
       title: 'Популярные теги',
-      description: 'Возвращает наиболее часто используемые теги анекдотов.',
-      inputSchema: { limit: z.number().int().min(1).max(100).optional().describe('Сколько тегов (по умолчанию 30)') },
+      description:
+        'Возвращает наиболее часто используемые теги записей, отсортированные по убыванию частоты (count). ' +
+        'Показывает темы, чаще всего встречающиеся в базе РжуНеМогу. Только чтение, без побочных эффектов. ' +
+        'limit задаёт сколько тегов вернуть (1-100, по умолчанию 30). Каждый тег — {name, count}, где count — число записей с этим тегом.',
+      inputSchema: {
+        limit: z.number().int().min(1).max(100).optional().describe('Сколько тегов вернуть (1-100). По умолчанию 30.'),
+      },
+      outputSchema: z.array(
+        z.object({
+          name: z.string(),
+          count: z.number(),
+        })
+      ),
     },
     async ({ limit }) => {
       const tags = await popularTags(limit ?? 30);
@@ -124,8 +201,17 @@ function createMcpServer(): McpServer {
     {
       title: 'Статистика сайта',
       description:
-        'Общая статистика сайта РжуНеМогу: число анекдотов, категорий, тегов, дата последнего обновления.',
+        'Возвращает общую статистику базы РжуНеМогу: число опубликованных записей (total_jokes), число категорий (total_categories), ' +
+        'число уникальных тегов (total_tags) и дату последнего обновления (last_update). ' +
+        'Полезно для получения общего представления о размере и активности базы. Только чтение, без побочных эффектов. ' +
+        'Стоимость вызова мала по сравнению с поиском — подходит для быстрых проверок доступности.',
       inputSchema: {},
+      outputSchema: z.object({
+          total_jokes: z.number(),
+          total_categories: z.number(),
+          total_tags: z.number(),
+          last_update: z.string(),
+        }),
     },
     async () => {
       const stats = await siteStats();
