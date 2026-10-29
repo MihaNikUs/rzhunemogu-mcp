@@ -1,0 +1,26 @@
+{
+  "name": "rzhunemogu",
+  "description": "Русскоязычный юмор: более 46 000 анекдотов, рассказов, афоризмов, тостов и статусов для ИИ-агентов. Полнотекстовый поиск, случайный контент, статистика.",
+  "vendor": "RzhuNeMogu",
+  "sourceUrl": "https://github.com/yourname/rzhunemogu-mcp",
+  "homepage": "https://rzhunemogu.ru",
+  "license": "MIT",
+  "runtime": "node",
+  "transport": "http",
+  "command": "node",
+  "arguments": ["dist/index.js"],
+  "env": {
+    "DATABASE_URL": "",
+    "PORT": "8081",
+    "TRANSPORT": "http"
+  },
+  "tools": {
+    "list_categories": "Список всех категорий с количеством записей",
+    "random_joke": "Случайный анекдот (по всем или по конкретной категории)",
+    "get_joke_by_id": "Анекдот по числовому ID",
+    "get_jokes_by_category": "Анекдоты категории с пагинацией",
+    "search_jokes": "Полнотекстовый поиск по ключевым словам",
+    "popular_tags": "Наиболее часто используемые теги",
+    "site_stats": "Статистика сайта"
+  }
+}
