@@ -8,6 +8,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18-green)](https://nodejs.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)](https://www.postgresql.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+[![GitVerse](https://img.shields.io/badge/GitVerse-зеркало-6498c6)](https://gitverse.ru/MihaNikUs2/rzhunemogu-mcp)
 
 ## ✨ Возможности
 
