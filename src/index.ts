@@ -139,8 +139,11 @@ function createMcpServer(): McpServer {
 // ---- HTTP-запуск (multi-session streamable HTTP) ----
 
 async function main() {
-  const transportMode = process.env.TRANSPORT || 'stdio';
-  const port = Number(process.env.PORT || 8081);
+  // Если задан PORT — почти наверняка нужен streamable HTTP (например, в песочнице Glama),
+  // где сервер должен отвечать на HTTP-запросы. Иначе по умолчанию используем stdio.
+  const port = Number(process.env.PORT || 0);
+  const transportMode = process.env.TRANSPORT || (port ? 'http' : 'stdio');
+  const effectivePort = port || 8081;
 
   if (transportMode === 'http') {
     // sessionId -> transport
@@ -196,9 +199,9 @@ async function main() {
       res.writeHead(405).end();
     });
 
-    httpServer.listen(port, () => {
+    httpServer.listen(effectivePort, () => {
       console.error(
-        `MCP server (rzhunemogu) listening on http://0.0.0.0:${port} (streamable HTTP, multi-session)`
+        `MCP server (rzhunemogu) listening on http://0.0.0.0:${effectivePort} (streamable HTTP, multi-session)`
       );
     });
     process.stdin.resume();
