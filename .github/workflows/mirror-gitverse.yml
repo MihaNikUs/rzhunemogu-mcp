@@ -1,0 +1,27 @@
+name: Mirror to GitVerse
+
+# Автоматически зеркалирует репозиторий GitHub → GitVerse при каждом push в main
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # ручной запуск при необходимости
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # нужна вся история коммитов
+
+      - name: Push mirror to GitVerse
+        env:
+          GITVERSE_USER: MihaNikUs2
+          GITVERSE_TOKEN: ${{ secrets.GITVERSE_TOKEN }}
+        run: |
+          git remote add gitverse "https://${GITVERSE_USER}:${GITVERSE_TOKEN}@gitverse.ru/MihaNikUs2/rzhunemogu-mcp"
+          git push -f gitverse main
+          # зеркалим теги, если есть
+          git push --tags gitverse || true
+          git remote remove gitverse
