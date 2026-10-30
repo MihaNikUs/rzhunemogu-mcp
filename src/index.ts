@@ -36,15 +36,6 @@ function createMcpServer(): McpServer {
         'Только чтение, без побочных эффектов. Ответ — JSON-массив в поле content[0].text. ' +
         'Используй id из этого списка как categoryId в random_joke/get_jokes_by_category.',
       inputSchema: {},
-      outputSchema: z.array(
-        z.object({
-          id: z.number(),
-          slug: z.string(),
-          title: z.string(),
-          is_adult: z.boolean(),
-          count: z.number(),
-        })
-      ),
     },
     async () => {
       const cats = await listCategories();
@@ -65,14 +56,7 @@ function createMcpServer(): McpServer {
       inputSchema: {
         categoryId: z.number().int().optional().describe('ID категории (из list_categories). Если опущен — случайная запись из любой категории, включая 18+.'),
       },
-      outputSchema: z.object({
-          id: z.number(),
-          category_id: z.number(),
-          category_title: z.string(),
-          content: z.string(),
-          is_adult: z.boolean(),
-          created_at: z.string(),
-        }),
+      outputSchema: undefined,
     },
     async ({ categoryId }) => {
       const joke = await randomJoke(categoryId);
@@ -92,13 +76,7 @@ function createMcpServer(): McpServer {
       inputSchema: {
         id: z.number().int().positive().describe('Числовой ID записи (например, 13438). Должен быть целым положительным.'),
       },
-      outputSchema: z.object({
-          id: z.number(),
-          category_id: z.number(),
-          category_title: z.string(),
-          content: z.string(),
-          created_at: z.string(),
-        }),
+      outputSchema: undefined,
     },
     async ({ id }) => {
       const joke = await jokeById(id);
@@ -121,17 +99,7 @@ function createMcpServer(): McpServer {
         limit: z.number().int().min(1).max(50).optional().describe('Количество записей за один вызов (1-50). По умолчанию 15.'),
         offset: z.number().int().min(0).optional().describe('Смещение от начала списка для пагинации. По умолчанию 0.'),
       },
-      outputSchema: z.object({
-          total: z.number(),
-          items: z.array(
-            z.object({
-              id: z.number(),
-              category_id: z.number(),
-              content: z.string(),
-              created_at: z.string(),
-            })
-          ),
-        }),
+      outputSchema: undefined,
     },
     async ({ categoryId, limit, offset }) => {
       const { items, total } = await jokesByCategory(categoryId, limit ?? 15, offset ?? 0);
@@ -153,18 +121,7 @@ function createMcpServer(): McpServer {
         limit: z.number().int().min(1).max(50).optional().describe('Количество результатов (1-50). По умолчанию 15.'),
         offset: z.number().int().min(0).optional().describe('Смещение для пагинации. По умолчанию 0.'),
       },
-      outputSchema: z.object({
-          query: z.string(),
-          total: z.number(),
-          items: z.array(
-            z.object({
-              id: z.number(),
-              category_id: z.number(),
-              content: z.string(),
-              created_at: z.string(),
-            })
-          ),
-        }),
+      outputSchema: undefined,
     },
     async ({ query, limit, offset }) => {
       const { items, total } = await searchJokes(query, limit ?? 15, offset ?? 0);
@@ -183,12 +140,7 @@ function createMcpServer(): McpServer {
       inputSchema: {
         limit: z.number().int().min(1).max(100).optional().describe('Сколько тегов вернуть (1-100). По умолчанию 30.'),
       },
-      outputSchema: z.array(
-        z.object({
-          name: z.string(),
-          count: z.number(),
-        })
-      ),
+      outputSchema: undefined,
     },
     async ({ limit }) => {
       const tags = await popularTags(limit ?? 30);
@@ -206,12 +158,7 @@ function createMcpServer(): McpServer {
         'Полезно для получения общего представления о размере и активности базы. Только чтение, без побочных эффектов. ' +
         'Стоимость вызова мала по сравнению с поиском — подходит для быстрых проверок доступности.',
       inputSchema: {},
-      outputSchema: z.object({
-          total_jokes: z.number(),
-          total_categories: z.number(),
-          total_tags: z.number(),
-          last_update: z.string(),
-        }),
+      outputSchema: undefined,
     },
     async () => {
       const stats = await siteStats();
